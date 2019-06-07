@@ -1,61 +1,123 @@
-FROM hiracchi/apache2-php
-MAINTAINER Toshiyuki HIRANO <hiracchi@gmail.com>
+FROM ubuntu:18.04
 
-# packages install 
-RUN apt-get update && \
-    apt-get install -y \
-        git curl unzip gettext php-curl php-sqlite3 \
-	gettext \
-        libhttp-daemon-perl liblwp-protocol-https-perl libyaml-tiny-perl \
-        supervisor && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION
+LABEL org.label-schema.build-date=$BUILD_DATE \
+      org.label-schema.vcs-ref=$VCS_REF \
+      org.label-schema.vcs-url="https://github.com/hiracchi/docker-rep2" \
+      org.label-schema.version=$VERSION \
+      maintainer="Toshiyuki Hirano <hiracchi@gmail.com>"
 
-# default parameters
-ARG REP2_UID=10001
-ARG REP2_DIR=/opt/p2-php
+ARG EXT=/ext
 
+# -----------------------------------------------------------------------------
+# JP
+# -----------------------------------------------------------------------------
+ENV LANG="ja_JP.UTF-8" LANGUAGE="ja_JP:en" LC_ALL="ja_JP.UTF-8" DEBIAN_FRONTEND="noninteractive" TZ="Asia/Tokyo"
 
-# setup user
-RUN useradd -u ${REP2_UID} -d /home/rep2 -m -s /bin/bash rep2
-RUN mkdir -p ${REP2_DIR} && chown -R rep2 ${REP2_DIR}
+RUN set -x \
+  && apt-get update \
+  && apt-get install -y \
+     apt-utils sudo wget gnupg locales language-pack-ja tzdata \
+  && apt-get update \
+  && locale-gen ja_JP.UTF-8 \
+  && update-locale LANG=ja_JP.UTF-8 \
+  && apt-get install -y tzdata \
+  && echo "${TZ}" > /etc/timezone \
+  && mv /etc/localtime /etc/localtime.orig \
+  && ln -s /usr/share/zoneinfo/Asia/Tokyo /etc/localtime \
+  && dpkg-reconfigure -f noninteractive tzdata \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
+# -----------------------------------------------------------------------------
+# rep2
+# -----------------------------------------------------------------------------
+RUN set -x \
+  && apt-get update \
+  && apt-get -y install --no-install-recommends \
+    git curl patch \
+    apache2 \
+    php php-xml php-curl \
+    php-mbstring php-sqlite3 \
+    libapache2-mod-php \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
-# setup rep2
-USER rep2
-WORKDIR ${REP2_DIR}
-RUN git clone git://github.com/2ch774/p2-php.git ${REP2_DIR}
-RUN curl -O http://getcomposer.org/composer.phar
-RUN php -d detect_unicode=0 composer.phar install
-RUN chmod 0777 data/* rep2/ic
+RUN set -x \
+  && mkdir -p ${EXT}
 
+WORKDIR /usr/local
+RUN set -x \
+  && git clone "https://github.com/open774/p2-php.git"
 
-# setup 2chproxy
-USER root
-RUN git clone https://github.com/yama-natuki/2chproxy.pl.git /opt/2chproxy
-COPY rep2.yml /opt/2chproxy/rep2.yml
+ENV COMPOSER_ALLOW_SUPERUSER 1
+ENV COMPOSER_NO_INTERACTION 1
 
+WORKDIR /usr/local/p2-php
+RUN set -x \
+  && curl -O "http://getcomposer.org/composer.phar" \
+  && php -d detect_unicode=0 composer.phar install
+RUN set -x \
+  && chmod 0777 data/* rep2/ic \
+  && chown -R www-data:www-data /usr/local/p2-php 
+RUN set -x \
+  && php scripts/p2cmd.php check
 
-# supervisor
-CMD mv /etc/supervisor/supervisord.conf /etc/supervisor/supervisord.conf.orig
-COPY supervisord.conf /etc/supervisor/supervisord.conf
-COPY apache2.conf /etc/supervisor/conf.d/
-COPY 2chproxy.conf /etc/supervisor/conf.d/
+# -----------------------------------------------------------------------------
+# 2ch proxy
+# -----------------------------------------------------------------------------
+RUN set -x \
+  && apt-get update \
+  && apt-get -y install --no-install-recommends \
+    libhttp-daemon-perl liblwp-protocol-https-perl libyaml-tiny-perl \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/* 
 
-#RUN sed -i.bak \
-#  -e 's|DEDICATED_BROWSER => "JD"|DEDICATED_BROWSER => "rep2"|' \
-#  -e 's|DAT_DIRECTORY => "$ENV{HOME}/.jd/"|DAT_DIRECTORY => "/opt/2chproxy/data/"|' \
-#  /opt/2chproxy/2chproxy.pl
-# RUN perl /opt/2chproxy/2chproxy.pl --config /opt/2chproxy/rep2.yml --daemon 
+WORKDIR /tmp
+RUN set -x \
+  && git clone "https://github.com/yama-natuki/2chproxy.pl.git" \
+  && cp /tmp/2chproxy.pl/2chproxy.pl /usr/local/bin/2chproxy.pl \
+  && rm -rf /tmp/2chproxy.pl
+COPY 2chproxy.conf /usr/local/etc/2chproxy.conf
 
+# -----------------------------------------------------------------------------
+# directory setting
+# -----------------------------------------------------------------------------
+WORKDIR /usr/local/p2-php
+RUN set -x \
+  && ln -s /usr/local/p2-php/rep2 /var/www/html/rep2
 
-WORKDIR /root
-RUN chown -R rep2:www-data ${REP2_DIR}
-RUN ln -s ${REP2_DIR}/rep2 /var/www/html/rep2
+# how to patch;
+# diff -uprN conf.orig conf
+COPY p2-php.patch /usr/local/p2-php/p2-php.patch
+RUN set -x \
+  && cp -r /usr/local/p2-php/conf /usr/local/p2-php/conf.orig \
+  && patch -p1 -d conf < p2-php.patch
 
+RUN set -x \
+  && mkdir -p /usr/local/p2-php/.default \
+  && mv /usr/local/p2-php/conf /usr/local/p2-php/.default/ \
+  && ln -s ${EXT}/conf /usr/local/p2-php/conf \
+  && mv /usr/local/p2-php/data /usr/local/p2-php/.default/ \
+  && ln -s ${EXT}/data /usr/local/p2-php/data \
+  && mv /usr/local/p2-php/rep2/ic /usr/local/p2-php/.default/ \
+  && ln -s ${EXT}/ic /usr/local/p2-php/rep2/ic
 
-EXPOSE 80 443
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["/usr/bin/supervisord"]
+# -----------------------------------------------------------------------------
+# test
+# -----------------------------------------------------------------------------
+COPY phpinfo.php /var/www/html/phpinfo.php
 
+# -----------------------------------------------------------------------------
+# entrypoint
+# -----------------------------------------------------------------------------
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY run-apache2.sh /usr/local/bin/run-apache2.sh
+RUN chmod a+x /usr/local/bin/run-apache2.sh
 
+VOLUME ${EXT}
+EXPOSE 80
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["/usr/local/bin/run-apache2.sh"]

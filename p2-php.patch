@@ -1,0 +1,42 @@
+diff -uprN conf.orig/conf.inc.php conf/conf.inc.php
+--- conf.orig/conf.inc.php	2019-06-07 23:14:28.000000000 +0900
++++ conf/conf.inc.php	2019-06-07 23:11:36.000000000 +0900
+@@ -143,7 +143,7 @@ function p2_init()
+     // }}}
+     // {{{ ライブラリ類のパス設定
+ 
+-    define('P2_CONFIG_DIR', __DIR__);
++    define('P2_CONFIG_DIR', '/usr/local/p2-php/conf');
+ 
+     define('P2_BASE_DIR', dirname(P2_CONFIG_DIR));
+ 
+diff -uprN conf.orig/conf_user_def.inc.php conf/conf_user_def.inc.php
+--- conf.orig/conf_user_def.inc.php	2019-06-07 23:14:28.000000000 +0900
++++ conf/conf_user_def.inc.php	2019-06-07 23:18:28.000000000 +0900
+@@ -39,7 +39,7 @@ $conf_user_def['first_page'] = "first_co
+ // ("http://azlucky.s25.xrea.com/2chboard/bbsmenu.html")    // 2ch + 外部BBS
+ // ("http://menu.2ch.net/bbsmenu.html")                     // 2ch基本
+ 
+-$conf_user_def['brdfile_online'] = "http://azlucky.s25.xrea.com/2chboard/bbsmenu.html";
++$conf_user_def['brdfile_online'] = "https://schmovic.web.fc2.com/list/bbsmenu.html";
+ $conf_user_rules['brdfile_online'] = array('emptyToDef', 'invalidUrlToDef');
+ 
+ // }}}
+@@ -528,14 +528,14 @@ $conf_user_def['mobile.save_packet'] = 1
+ $conf_user_rad['mobile.save_packet'] = array('1' => 'する', '0' => 'しない');
+ 
+ // プロキシを利用(する:1, しない:0)
+-$conf_user_def['proxy_use'] = 0; // (0)
++$conf_user_def['proxy_use'] = 1; // (0)
+ $conf_user_rad['proxy_use'] = array('1' => 'する', '0' => 'しない');
+ 
+ // プロキシホスト ex)"127.0.0.1", "www.p2proxy.com"
+-$conf_user_def['proxy_host'] = ""; // ("")
++$conf_user_def['proxy_host'] = "127.0.01"; // ("")
+ 
+ // プロキシポート ex)"8080"
+-$conf_user_def['proxy_port'] = ""; // ("")
++$conf_user_def['proxy_port'] = "8080"; // ("")
+ 
+ // プロキシユーザー名 (使用する場合のみ)
+ $conf_user_def['proxy_user'] = ""; // ("")
