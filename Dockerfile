@@ -31,6 +31,13 @@ RUN set -x \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
+RUN set -x \
+  && apt-get update \
+  && apt-get -y install --no-install-recommends \
+    nkf vim less \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
 # -----------------------------------------------------------------------------
 # rep2
 # -----------------------------------------------------------------------------
@@ -61,7 +68,7 @@ RUN set -x \
   && php -d detect_unicode=0 composer.phar install
 RUN set -x \
   && chmod 0777 data/* rep2/ic \
-  && chown -R www-data:www-data /usr/local/p2-php 
+  && chown -R www-data:www-data /usr/local/p2-php
 RUN set -x \
   && php scripts/p2cmd.php check
 
@@ -73,7 +80,7 @@ RUN set -x \
   && apt-get -y install --no-install-recommends \
     libhttp-daemon-perl liblwp-protocol-https-perl libyaml-tiny-perl \
   && apt-get clean \
-  && rm -rf /var/lib/apt/lists/* 
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /tmp
 RUN set -x \

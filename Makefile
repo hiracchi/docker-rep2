@@ -1,4 +1,4 @@
-PACKAGE=registry.gitlab.com/hiracchi/docker-rep2
+PACKAGE=hiracchi/rep2
 TAG=latest
 CONTAINER_NAME=rep2
 
@@ -15,7 +15,7 @@ start:
 	docker run -d \
 		--rm \
 		--name ${CONTAINER_NAME} \
-		-p "8080:80" \
+		-p "10080:80" \
 		--volume "${PWD}/ext:/ext" \
 		"${PACKAGE}:${TAG}"
 	@sleep 1
